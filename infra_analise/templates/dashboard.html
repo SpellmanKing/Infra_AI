@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estatísticas | INFRA.AI</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        :root { 
+            --primary: #4361ee; --bg: #f4f7fe; --card: #ffffff; 
+            --text: #2b3674; --muted: #64748b; 
+        }
+
+        [data-theme="dark"] {
+            --bg: #0b1133; --card: #111c44; --text: #ffffff; --muted: #a3aed0;
+        }
+
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: var(--bg); 
+            color: var(--text); 
+            transition: 0.3s; 
+            min-height: 100vh;
+        }
+
+        .navbar { background: var(--card); border-bottom: 1px solid rgba(0,0,0,0.1); }
+        
+        .card-custom { 
+            background: var(--card); border-radius: 20px; border: none; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05); 
+        }
+
+        .theme-toggle { cursor: pointer; font-size: 1.2rem; }
+        .table { color: inherit; }
+        .table-hover tbody tr:hover { background-color: rgba(67, 97, 238, 0.05); }
+        
+        .badge-vm { background: #4361ee; color: white; padding: 6px 12px; border-radius: 8px; }
+        .badge-container { background: #00d1b2; color: white; padding: 6px 12px; border-radius: 8px; }
+
+        .collapse-content { 
+            background: rgba(0,0,0,0.02); 
+            border-radius: 15px; 
+            padding: 20px; 
+            border: 1px solid rgba(0,0,0,0.05); 
+        }
+        
+        [data-theme="dark"] .collapse-content { background: rgba(255,255,255,0.05); }
+    </style>
+</head>
+<body data-theme="light">
+
+<nav class="navbar navbar-expand-lg py-3 shadow-sm">
+    <div class="container">
+        <a class="navbar-brand fw-bold text-primary" href="{% url 'index' %}">
+            <i class="fa-solid fa-arrow-left me-2"></i> INFRA.AI
+        </a>
+        <div class="d-flex align-items-center gap-3">
+            <a href="?limpar=true" class="btn btn-sm btn-outline-danger rounded-pill px-3" onclick="return confirm('Deseja apagar todo o histórico da pesquisa?')">
+                <i class="fa-solid fa-trash-can me-1"></i> Limpar Histórico
+            </a>
+            <i class="fa-solid fa-moon theme-toggle" id="theme-btn" onclick="toggleTheme()"></i>
+        </div>
+    </div>
+</nav>
+
+<div class="container mt-5">
+    <div class="row g-4 mb-5">
+        <div class="col-lg-6">
+            <div class="card-custom p-4 h-100 text-center">
+                <h5 class="fw-bold mb-4">Métricas de Recomendação</h5>
+                <div style="max-height: 250px;">
+                    <canvas id="chartImpacto"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-6">
+            <div class="row g-3 h-100">
+                <div class="col-6">
+                    <div class="card-custom p-4 text-center border-bottom border-primary border-5 h-100">
+                        <h2 class="fw-bold">{{ total_vm }}</h2>
+                        <p class="small mb-0 fw-bold" style="color: var(--text);">VMS RECOMENDADAS</p>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="card-custom p-4 text-center border-bottom border-success border-5 h-100">
+                        <h2 class="fw-bold text-success">{{ total_container }}</h2>
+                        <p class="small mb-0 fw-bold" style="color: var(--text);">CONTÊINERES RECOMENDADOS</p>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="card-custom p-4 mt-2">
+                        <h6 class="fw-bold small text-primary uppercase">Insight do Projeto</h6>
+                        <p class="small mb-0">Baseado em {{ historico|length }} simulações, a infraestrutura ideal tende a ser 
+                        <strong>{% if total_container > total_vm %}Contêineres{% else %}Máquinas Virtuais{% endif %}</strong>.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card-custom p-4 mb-5">
+        <h5 class="fw-bold mb-4"><i class="fa-solid fa-database me-2 text-primary"></i> Histórico da Iniciação Científica</h5>
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr class="text-muted small">
+                        <th>DATA/HORA</th>
+                        <th>MODELO IA</th>
+                        <th>RECOMENDAÇÃO</th>
+                        <th class="text-end">AÇÃO</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in historico %}
+                    <tr>
+                        <td class="small">{{ item.data_hora }}</td>
+                        <td><span class="badge bg-light text-dark border fw-normal">{{ item.modelo_utilizado|upper }}</span></td>
+                        <td>
+                            {% if item.decisao_calculada == "CONTÊINER" %}
+                                <span class="badge badge-container">CONTÊINER</span>
+                            {% else %}
+                                <span class="badge badge-vm">VM</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-outline-primary rounded-pill px-3" 
+                                    type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ forloop.counter }}">
+                                <i class="fa-solid fa-magnifying-glass me-1"></i> Detalhes
+                            </button>
+                        </td>
+                    </tr>
+                    <tr class="collapse" id="collapse-{{ forloop.counter }}">
+                        <td colspan="4">
+                            <div class="collapse-content my-3">
+                                <div class="row">
+                                    <div class="col-md-5 border-end">
+                                        <h6 class="fw-bold text-primary small mb-3">REQUISITOS ENVIADOS:</h6>
+                                        <p class="small fst-italic">"{{ item.requisitos_inseridos }}"</p>
+                                    </div>
+                                    <div class="col-md-7">
+                                        <h6 class="fw-bold text-primary small mb-3">ANÁLISE TÉCNICA COMPLETA:</h6>
+                                        <div class="small" style="white-space: pre-wrap;">{{ item.analise_ia }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center py-5 text-muted">
+                            <i class="fa-solid fa-inbox fa-3x mb-3"></i>
+                            <p>Nenhum dado registrado para a pesquisa ainda.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    const body = document.body;
+    const themeBtn = document.getElementById('theme-btn');
+
+    if (localStorage.getItem('theme') === 'dark') {
+        body.setAttribute('data-theme', 'dark');
+        themeBtn.classList.replace('fa-moon', 'fa-sun');
+    }
+
+    function toggleTheme() {
+        const current = body.getAttribute('data-theme');
+        if (current === 'light') {
+            body.setAttribute('data-theme', 'dark');
+            themeBtn.classList.replace('fa-moon', 'fa-sun');
+            localStorage.setItem('theme', 'dark');
+        } else {
+            body.setAttribute('data-theme', 'light');
+            themeBtn.classList.replace('fa-sun', 'fa-moon');
+            localStorage.setItem('theme', 'light');
+        }
+    }
+
+    const ctx = document.getElementById('chartImpacto').getContext('2d');
+    const totalVM = {{ total_vm|default:0 }};
+    const totalCT = {{ total_container|default:0 }};
+
+    if (totalVM > 0 || totalCT > 0) {
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['VM', 'Contêiner'],
+                datasets: [{
+                    data: [totalVM, totalCT],
+                    backgroundColor: ['#4361ee', '#00d1b2'],
+                    hoverOffset: 15,
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '75%',
+                plugins: {
+                    legend: { position: 'bottom', labels: { usePointStyle: true, padding: 20 } }
+                }
+            }
+        });
+    }
+</script>
+</body>
+</html>

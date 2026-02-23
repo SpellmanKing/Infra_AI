@@ -1,15 +1,21 @@
+import os
 import requests
 import json
 from datetime import datetime
-import os
-from dotenv import load_dotenv
+from dotenv import load_dotenv # Importação necessária
 
-load_dotenv()  # Carrega variáveis do .env
-token = os.getenv("HF_TOKEN")  # Certifique-se de ter HF_TOKEN no seu .env  
+# Carrega as variáveis do arquivo .env para o sistema
+load_dotenv()
 
+# Puxa o token das variáveis de ambiente
+TOKEN = os.getenv("HF_TOKEN")
 URL = "https://router.huggingface.co/v1/chat/completions"
 
 def analisar_com_ia(requisitos, modelo_alias):
+    # Verificação de segurança para evitar o erro NameError
+    if not TOKEN:
+        return "Erro: Token de API não configurado. Verifique o arquivo .env"
+    
     headers = {"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"}
     
     modelos_disponiveis = {
